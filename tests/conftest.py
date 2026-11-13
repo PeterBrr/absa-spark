@@ -23,6 +23,9 @@ if not os.environ.get("JAVA_HOME"):
 # Worker Python của Spark phải dùng cùng trình thông dịch với pytest (quan trọng trên Windows/venv)
 os.environ.setdefault("PYSPARK_PYTHON", sys.executable)
 os.environ.setdefault("PYSPARK_DRIVER_PYTHON", sys.executable)
+# Worker phải import được `common.*` và các module test (hàm trong test được pickle theo tên module)
+os.environ["PYTHONPATH"] = os.pathsep.join(
+    [ROOT, os.path.join(ROOT, "tests"), os.environ.get("PYTHONPATH", "")]).rstrip(os.pathsep)
 
 
 @pytest.fixture(scope="session")
