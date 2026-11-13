@@ -29,6 +29,8 @@ def test_model_handles_all_padding_row():
     ids[0, :3] = 5
     out = m(ids)
     assert out.shape == (2, 8, 4) and torch.isfinite(out).all()
+    # câu rỗng → vector đặc trưng bằng 0 → đầu ra chỉ còn bias của lớp phân loại
+    assert torch.allclose(out[1], m.heads.bias.view(8, 4))
 
 
 def test_make_rnn_loaders_batches():

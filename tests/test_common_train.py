@@ -46,6 +46,17 @@ def test_fit_learns_toy_problem():
     assert len(hist["train_loss"]) == 30
 
 
+def test_fit_keeps_best_epoch_when_training_gets_worse():
+    loader = _toy_loader()
+    model = Toy()
+    # Loss "ngược": học đoán nhãn sai → macro-F1 trên val giảm dần; fit phải giữ epoch tốt nhất
+    hist = fit(model, loader, loader, loss_fn=lambda out, y: ce_loss(out, 1 - y),
+               epochs=15, lr=0.05, device="cpu")
+    assert hist["val_macro_f1"][-1] < max(hist["val_macro_f1"])
+    y = torch.cat([b["labels"] for b in loader]).numpy()
+    assert np.isclose(macro_f1_mean(y, predict_labels(model, loader, device="cpu")), max(hist["val_macro_f1"]))
+
+
 def test_fit_restores_best_epoch_and_predict_labels():
     loader = _toy_loader()
     model = Toy()

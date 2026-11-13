@@ -48,6 +48,16 @@ def test_gated_ignores_sentiment_when_not_mentioned():
     assert torch.isclose(a, b)
 
 
+def test_gated_mixed_batch_ignores_unmentioned_positions():
+    y = torch.tensor([[0, 2, 0, 1, 3, 0, 0, 2]])  # khía cạnh 0, 2, 5, 6 không được nhắc đến
+    m = torch.randn(1, 8, 2)
+    s1 = torch.randn(1, 8, 3)
+    s2 = s1.clone()
+    s2[0, [0, 2, 5, 6]] = torch.randn(4, 3) * 100  # chỉ đổi cảm xúc ở vị trí không được nhắc
+    assert torch.isclose(gated_loss({"mention": m, "sentiment": s1}, y),
+                         gated_loss({"mention": m, "sentiment": s2}, y))
+
+
 def test_gated_uses_sentiment_when_mentioned():
     y = torch.full((1, 8), 2, dtype=torch.long)  # tất cả Positive
     m = torch.zeros(1, 8, 2)
