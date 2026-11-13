@@ -1,0 +1,11 @@
+# Môi trường chạy test cục bộ (không dùng trong notebook nộp)
+pytest
+pyspark>=3.4
+torch
+transformers
+pyvi
+pandas
+numpy
+pyarrow
+scikit-learn
+nbformat

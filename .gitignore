@@ -1,0 +1,23 @@
+# Mô hình & checkpoint (không đưa lên GitHub vì dung lượng lớn)
+models/
+*.pt
+*.bin
+*.safetensors
+
+# Python / Jupyter
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.pytest_cache/
+
+# Spark
+spark-warehouse/
+metastore_db/
+derby.log
+
+# Môi trường cục bộ (JDK portable, virtualenv)
+.tools/
+.venv/
+
+# Thư mục làm việc của công cụ
+.superpowers/
