@@ -1,12 +1,15 @@
 import os
 
+import numpy as np
 import pandas as pd
+import pytest
 from pyspark import SparkFiles
 from pyspark.sql import functions as F
 from pyspark.sql.types import StructField, StructType
 
+import common.common_cells as cc
 from common.common_cells import (
-    ASPECTS, PRED_SCHEMA, create_spark, evaluate_with_spark, explode_predictions,
+    ASPECTS, PRED_SCHEMA, create_spark, evaluate_with_spark, explode_predictions, macro_f1_mean,
     ship_model_to_spark, shipped_model_path, to_spark_df,
 )
 
@@ -47,6 +50,21 @@ def test_evaluate_missing_class_no_nan(spark):  # nhãn 3 (Neutral) không xuấ
     assert abs(res.loc["Price", "f1_macro"] - 1 / 3) < 1e-9
 
 
+def test_evaluate_predicted_class_absent_from_truth(spark):
+    # Mô hình đoán nhãn 3 trong khi nhãn thật chỉ có {0, 1} (vd khía cạnh Others / Price trên test)
+    truth, pred = [0, 0, 1, 1], [0, 3, 1, 1]
+    pdf = pd.DataFrame({"text": list("abcd"), **{a: truth for a in ASPECTS}})
+    sdf = to_spark_df(spark, pdf)
+    for a in ASPECTS:
+        sdf = sdf.withColumn(f"pred_{a}", F.element_at(F.array(*[F.lit(float(p)) for p in pred]),
+                                                       (F.col("id") + 1).cast("int")))
+    res = evaluate_with_spark(sdf)
+    # macro-F1 trên {0, 1, 3}: F1(0)=2/3, F1(1)=1, F1(3)=0 → 5/9 (giống sklearn zero_division=0)
+    assert abs(res.loc["Price", "f1_macro"] - 5 / 9) < 1e-9
+    y = np.array([truth] * 8).T
+    assert abs(res.loc["Mean", "f1_macro"] - macro_f1_mean(y, np.array([pred] * 8).T)) < 1e-9
+
+
 def test_explode_predictions(spark):
     sdf = spark.createDataFrame([(dict(zip(ASPECTS, range(8))),)],
                                 StructType([StructField("pred", PRED_SCHEMA)]))
@@ -67,13 +85,34 @@ def test_ship_model_twice_is_safe(spark, tmp_path):
     assert got == ["v2"]
 
 
-def test_ship_local_mode_uses_absolute_copy(spark, tmp_path):
+def test_ship_local_windows_uses_absolute_copy(spark, tmp_path, monkeypatch):
     d = tmp_path / "m2"
     d.mkdir()
     (d / "w.txt").write_text("ok")
+    monkeypatch.setattr(cc, "_IS_WINDOWS", True)  # Windows + local: không gọi addFile
     name = ship_model_to_spark(spark, str(d))
     assert os.path.isabs(name) and os.path.isfile(os.path.join(name, "w.txt"))
     assert os.path.normpath(name) != os.path.normpath(str(d))  # là bản chép, không phải thư mục gốc
+
+
+def test_ship_local_linux_uses_addfile(spark, tmp_path, monkeypatch):
+    d = tmp_path / "m4"
+    d.mkdir()
+    (d / "w.txt").write_text("ok")
+    calls = []
+    monkeypatch.setattr(cc, "_IS_WINDOWS", False)  # Kaggle / Colab: local mode trên Linux
+    monkeypatch.setattr(spark.sparkContext, "addFile", lambda path, recursive=False: calls.append((path, recursive)))
+    name = ship_model_to_spark(spark, str(d))
+    assert not os.path.isabs(name) and len(calls) == 1 and calls[0][1] is True
+
+
+def test_ship_rejects_spark_connect_with_clear_message(tmp_path):
+    d = tmp_path / "m5"
+    d.mkdir()
+    FakeConnect = type("SparkSession", (), {})
+    FakeConnect.__module__ = "pyspark.sql.connect.session"
+    with pytest.raises(RuntimeError, match="Spark Connect"):
+        ship_model_to_spark(FakeConnect(), str(d))
 
 
 def test_ship_on_cluster_uses_addfile(spark, tmp_path, monkeypatch):

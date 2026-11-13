@@ -3,6 +3,7 @@ import os
 import pandas as pd
 import pytest
 
+import common.common_cells as cc
 from common.common_cells import (
     ASPECTS, DATA_FILES, check_environment, clean_text, find_or_download_data,
     get_splits, load_dataset, resolve_train_config,
@@ -97,3 +98,36 @@ def test_check_environment_reports(spark):
 def test_check_environment_rejects_old_spark(spark):
     with pytest.raises(RuntimeError):
         check_environment(min_spark="99.0")
+
+
+def test_java_major_parsing():
+    assert cc._java_major('openjdk version "21.0.13" 2026-10-20 LTS') == 21
+    assert cc._java_major('java version "1.8.0_392"') == 8
+    assert cc._java_major('openjdk version "11.0.2" 2019-01-15') == 11
+    assert cc._java_major("") == 0
+
+
+def test_check_environment_rejects_old_java_for_spark4(spark, monkeypatch):
+    monkeypatch.setattr(cc, "_java_version", lambda: 'openjdk version "11.0.2" 2019-01-15')
+    if cc._version_tuple(__import__("pyspark").__version__) >= (4,):
+        with pytest.raises(RuntimeError, match="Java 17"):
+            check_environment()
+
+
+def test_check_environment_stops_when_spark_cannot_start(spark, monkeypatch):
+    def broken(*args, **kwargs):
+        raise Exception("JAVA_GATEWAY_EXITED")
+
+    monkeypatch.setattr(cc, "create_spark", broken)
+    with pytest.raises(RuntimeError, match="Spark"):
+        check_environment()
+
+
+def test_java_version_timeout_is_handled(monkeypatch):
+    import subprocess
+
+    def slow(*args, **kwargs):
+        raise subprocess.TimeoutExpired(cmd="java", timeout=30)
+
+    monkeypatch.setattr(cc.subprocess, "run", slow)
+    assert cc._java_version() == ""

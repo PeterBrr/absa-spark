@@ -1,9 +1,9 @@
-# === COMMON losses.py v1 ===
+# === COMMON losses.py v2 ===
 # Các hàm loss cho thí nghiệm NB5 — dán NGUYÊN VĂN file common/losses.py vào ô này.
 from functools import partial
 
 import torch
-import torch.nn.functional as F
+import torch.nn.functional as TF  # không đặt tên F: notebook Spark hay dùng F = pyspark.sql.functions
 
 try:  # khi chạy pytest
     from common.common_cells import ASPECTS, ce_loss
@@ -20,10 +20,10 @@ def gated_loss(out: dict, labels):
     khía cạnh được nhắc đến: khía cạnh không được nhắc thì không có loss cảm xúc.
     """
     mention, sentiment = out["mention"], out["sentiment"]
-    loss = F.cross_entropy(mention.reshape(-1, 2), (labels > 0).long().reshape(-1))
+    loss = TF.cross_entropy(mention.reshape(-1, 2), (labels > 0).long().reshape(-1))
     mask = labels > 0
     if mask.any():
-        loss = loss + F.cross_entropy(sentiment[mask], labels[mask] - 1)
+        loss = loss + TF.cross_entropy(sentiment[mask], labels[mask] - 1)
     else:
         loss = loss + sentiment.sum() * 0.0  # giữ đồ thị tính gradient
     return loss
@@ -32,7 +32,7 @@ def gated_loss(out: dict, labels):
 def weighted_ce_loss(logits, labels, class_weights):
     """CrossEntropy có trọng số theo (khía cạnh, nhãn): nhãn kém tin cậy được trọng số thấp hơn.
     class_weights [8,4]; loss = Σ w·CE / Σ w (trọng số toàn 1 thì bằng CE thường)."""
-    ce = F.cross_entropy(logits.reshape(-1, logits.shape[-1]), labels.reshape(-1),
+    ce = TF.cross_entropy(logits.reshape(-1, logits.shape[-1]), labels.reshape(-1),
                          reduction="none").view_as(labels)
     w = class_weights.to(logits.device)
     aspect_idx = torch.arange(labels.shape[1], device=labels.device).expand_as(labels)
@@ -43,7 +43,7 @@ def weighted_ce_loss(logits, labels, class_weights):
 def focal_loss(logits, labels, gamma: float = 2.0):
     """Focal loss: nhân CE với (1 - p_đúng)^gamma → giảm ảnh hưởng mẫu dễ, tăng trọng số mẫu khó.
     gamma = 0 thì bằng CE thường."""
-    logp = F.log_softmax(logits, dim=-1)
+    logp = TF.log_softmax(logits, dim=-1)
     logp_true = logp.gather(-1, labels.unsqueeze(-1)).squeeze(-1)
     return (-(1 - logp_true.exp()) ** gamma * logp_true).mean()
 

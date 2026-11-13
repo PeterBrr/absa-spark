@@ -1,4 +1,4 @@
-# === COMMON common_cells.py v1 ===
+# === COMMON common_cells.py v2 ===
 # Khối code dùng chung cho cả 5 notebook — dán NGUYÊN VĂN file common/common_cells.py vào ô này.
 # Gồm: hằng số, kiểm tra môi trường, đọc/chia dữ liệu, vòng lặp huấn luyện, tiện ích Spark.
 import copy
@@ -18,10 +18,10 @@ import uuid
 import numpy as np
 import pandas as pd
 import torch
-import torch.nn.functional as F
+import torch.nn.functional as TF  # không đặt tên F: notebook Spark hay dùng F = pyspark.sql.functions
 from sklearn.metrics import f1_score
 
-COMMON_VERSION = 1
+COMMON_VERSION = 2
 
 # ---------------------------------------------------------------------------
 # 1. Hằng số
@@ -66,14 +66,26 @@ def _java_version() -> str:
         java = os.path.join(os.environ["JAVA_HOME"], "bin", "java")
     try:
         out = subprocess.run([java, "-version"], capture_output=True, text=True, timeout=30)
-    except (FileNotFoundError, OSError):
+    except (OSError, subprocess.SubprocessError):  # không có java, hoặc java treo quá 30 giây
         return ""
     lines = (out.stderr or out.stdout).strip().splitlines()
     return lines[0] if lines else ""
 
 
+def _java_major(version_line: str) -> int:
+    """'openjdk version "21.0.13"' → 21; 'java version "1.8.0_392"' → 8; chuỗi rỗng → 0."""
+    m = re.search(r'version "([^"]+)"', version_line) or re.search(r"(\d+(?:\.\d+)*)", version_line)
+    if not m:
+        return 0
+    parts = [int(x) for x in re.findall(r"\d+", m.group(1))]
+    if not parts:
+        return 0
+    return parts[1] if parts[0] == 1 and len(parts) > 1 else parts[0]
+
+
 def check_environment(min_spark: str = "3.4", require_gpu: bool = False) -> dict:
-    """Kiểm tra Python, PySpark, Java, GPU. Dừng sớm (RuntimeError) nếu môi trường không chạy được."""
+    """Kiểm tra Python, PySpark, Java, GPU, rồi khởi động thử Spark.
+    Dừng sớm (RuntimeError, thông báo tiếng Việt) nếu môi trường không chạy được — trước khi huấn luyện."""
     import pyspark
 
     info = {
@@ -87,8 +99,18 @@ def check_environment(min_spark: str = "3.4", require_gpu: bool = False) -> dict
         raise RuntimeError(
             f"PySpark {info['pyspark']} quá cũ: cần PySpark >= {min_spark} (predict_batch_udf có từ 3.4). "
             "Hãy dùng môi trường có Spark mới hơn (ví dụ Kaggle/Colab hiện tại có PySpark 4.x).")
+    need_java = 17 if _version_tuple(info["pyspark"]) >= (4,) else 8
     if not info["java"]:
-        raise RuntimeError("Không tìm thấy Java. Spark cần Java 17+ — hãy cài JDK hoặc đặt biến JAVA_HOME.")
+        raise RuntimeError(f"Không tìm thấy Java. PySpark {info['pyspark']} cần Java {need_java}+ — "
+                           "hãy cài JDK hoặc đặt biến JAVA_HOME.")
+    if _java_major(info["java"]) < need_java:
+        raise RuntimeError(f"Java quá cũ ({info['java']}): PySpark {info['pyspark']} cần Java {need_java}+. "
+                           "Hãy cài JDK mới hơn hoặc trỏ JAVA_HOME tới JDK mới.")
+    try:  # khởi động thử Spark và chạy một job nhỏ
+        create_spark().range(1).count()
+    except Exception as exc:
+        raise RuntimeError(f"Không khởi động được Spark ({type(exc).__name__}: {str(exc)[:300]}). "
+                           "Kiểm tra lại Java/JAVA_HOME và bản cài PySpark.") from exc
     if not info["cuda"]:
         msg = ("Không có GPU: huấn luyện trên CPU. Notebook PhoBERT sẽ tự dùng cấu hình rút gọn (FAST_MODE) "
                "để chạy xong trong thời gian hợp lý; mô hình RNN không bị ảnh hưởng.")
@@ -207,7 +229,7 @@ def resolve_train_config(base: dict, fast: bool = None) -> dict:
 # ---------------------------------------------------------------------------
 def ce_loss(logits, labels):
     """CrossEntropy trung bình trên 8 khía cạnh. logits [B,8,4], labels [B,8]."""
-    return F.cross_entropy(logits.reshape(-1, logits.shape[-1]), labels.reshape(-1))
+    return TF.cross_entropy(logits.reshape(-1, logits.shape[-1]), labels.reshape(-1))
 
 
 def argmax_labels(out):
@@ -282,7 +304,7 @@ def fit(model, train_loader, val_loader, loss_fn=ce_loss, to_labels=argmax_label
 # ---------------------------------------------------------------------------
 # 5. Spark
 # ---------------------------------------------------------------------------
-from pyspark.sql import functions as SF  # noqa: E402  (đặt tên SF để không trùng torch.nn.functional)
+from pyspark.sql import functions as SF  # noqa: E402  (đặt tên SF để không trùng tên F hay dùng trong notebook)
 from pyspark.sql.types import IntegerType, StructField, StructType  # noqa: E402
 
 # Kiểu trả về của UDF dự đoán: 8 trường số nguyên, tên theo ASPECTS
@@ -324,25 +346,44 @@ def explode_predictions(sdf, struct_col: str = "pred"):
 def evaluate_with_spark(sdf) -> pd.DataFrame:
     """Đánh giá từng khía cạnh bằng MulticlassClassificationEvaluator.
     Cần cột nhãn <aspect> và cột dự đoán pred_<aspect> (double).
-    Trả về bảng: accuracy, f1_weighted, f1_macro (macro trên các nhãn có mặt) + dòng Mean."""
+    Trả về bảng: accuracy, f1_weighted, f1_macro + dòng Mean.
+    f1_macro = trung bình F1 trên các nhãn có mặt (trong nhãn thật hoặc dự đoán), giống
+    sklearn f1_score(average="macro", zero_division=0)."""
     from pyspark.ml.evaluation import MulticlassClassificationEvaluator
 
-    sdf = sdf.cache()
+    cached_here = False
+    try:  # cache để 8 lần đánh giá không tính lại UDF; một số môi trường (serverless) không cho cache
+        if not sdf.is_cached:
+            sdf, cached_here = sdf.cache(), True
+    except Exception:
+        pass
     rows = {}
     for a in ASPECTS:
         ev = MulticlassClassificationEvaluator(labelCol=a, predictionCol=f"pred_{a}")
-        present = sorted({r[0] for r in sdf.select(a).union(sdf.select(f"pred_{a}")).distinct().collect()})
+        true_labels = {r[0] for r in sdf.select(a).distinct().collect()}
+        pred_labels = {r[0] for r in sdf.select(f"pred_{a}").distinct().collect()}
+        # Spark chỉ tính fMeasureByLabel cho nhãn có trong nhãn thật (nhãn chỉ có trong dự đoán sẽ lỗi
+        # "key not found"); nhãn đó không có mẫu đúng nào nên F1 = 0.
         f1_by_label = [ev.evaluate(sdf, {ev.metricName: "fMeasureByLabel", ev.metricLabel: float(k)})
-                       for k in present]
+                       for k in sorted(true_labels)]
+        f1_by_label += [0.0] * len(pred_labels - true_labels)
         rows[a] = {
             "accuracy": ev.evaluate(sdf, {ev.metricName: "accuracy"}),
             "f1_weighted": ev.evaluate(sdf, {ev.metricName: "f1"}),
             "f1_macro": float(np.mean(f1_by_label)),
         }
-    sdf.unpersist()
+    if cached_here:
+        sdf.unpersist()
     result = pd.DataFrame.from_dict(rows, orient="index")[["accuracy", "f1_weighted", "f1_macro"]]
     result.loc["Mean"] = result.mean()
     return result
+
+
+_IS_WINDOWS = os.name == "nt"
+
+
+def _is_spark_connect(spark) -> bool:
+    return type(spark).__module__.startswith("pyspark.sql.connect")
 
 
 def ship_model_to_spark(spark, model_dir: str) -> str:
@@ -350,15 +391,23 @@ def ship_model_to_spark(spark, model_dir: str) -> str:
     Chép sang thư mục tên duy nhất để chạy lại notebook không bị lỗi "file already added".
     Trả về "tên" để dùng trong UDF qua shipped_model_path(<tên>).
 
-    - Cluster (Databricks, YARN...): SparkContext.addFile gửi bản chép tới từng executor.
-    - Local mode (Kaggle, Colab, Jupyter trên máy): driver và worker cùng một máy nên worker đọc thẳng
-      bản chép qua đường dẫn tuyệt đối. Không gọi addFile ở đây vì trên Windows thiếu winutils của Hadoop,
-      một lần addFile lỗi sẽ làm MỌI job Spark sau đó thất bại."""
+    - Mặc định (Kaggle, Colab, Databricks classic, YARN...): SparkContext.addFile gửi bản chép tới
+      từng executor; UDF lấy đường dẫn bằng SparkFiles.get.
+    - Ngoại lệ duy nhất: Jupyter trên Windows ở local mode. Hadoop trên Windows cần winutils; thiếu nó,
+      một lần addFile lỗi làm MỌI job Spark sau đó thất bại. Vì driver và worker cùng một máy,
+      worker đọc thẳng bản chép qua đường dẫn tuyệt đối.
+    - Spark Connect (vd Databricks serverless) không có SparkContext → báo lỗi rõ ràng."""
+    if _is_spark_connect(spark):
+        raise RuntimeError(
+            "Phiên Spark Connect (vd Databricks serverless / Free Edition) không hỗ trợ SparkContext.addFile "
+            "để gửi mô hình tới executor. Hãy chạy notebook trên classic compute (Databricks: cluster "
+            "single-user/dedicated), Kaggle, Colab hoặc Jupyter có PySpark.")
     base = os.path.basename(os.path.normpath(model_dir))
     name = f"{base}_{time.strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}"
     dest = os.path.join(tempfile.gettempdir(), "absa_ship", name)
     shutil.copytree(model_dir, dest)
-    if spark.sparkContext.master.startswith("local"):
+    if _IS_WINDOWS and spark.sparkContext.master.startswith("local"):
+        print("Windows + local mode: worker đọc mô hình trực tiếp từ thư mục tạm", name)
         return dest
     spark.sparkContext.addFile(dest, recursive=True)
     return name
@@ -366,7 +415,7 @@ def ship_model_to_spark(spark, model_dir: str) -> str:
 
 def shipped_model_path(shipped_name: str) -> str:
     """Dùng BÊN TRONG UDF: trả về thư mục mô hình trên worker (từ SparkFiles, hoặc đường dẫn cục bộ
-    nếu ship_model_to_spark đã phải dùng phương án dự phòng)."""
+    trong trường hợp Windows + local mode của ship_model_to_spark)."""
     from pyspark import SparkFiles
 
     if os.path.isabs(shipped_name) and os.path.isdir(shipped_name):
