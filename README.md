@@ -53,7 +53,20 @@ python tools/check_notebooks.py notebooks/*.ipynb
 
 ## Kết quả
 
-_(Cập nhật ngày 7.)_
+Đánh giá trên tập test (2.340 bình luận) bằng `MulticlassClassificationEvaluator`, trung bình 8 khía cạnh.
+Chạy trên Kaggle (GPU T4, PySpark 4.0.4).
+
+| Notebook | Mô hình | Đóng gói | Accuracy | F1 (weighted) | Macro-F1 | Kaggle |
+|---|---|---|---|---|---|---|
+| NB1 | BiLSTM | `pandas_udf` | 0.9038 | 0.8975 | 0.6435 | [link](https://www.kaggle.com/code/quangnhat6/absa-nb1-rnn-pandas-udf) |
+| NB2 | BiLSTM | `predict_batch_udf` | 0.9038 | 0.8975 | 0.6435 | [link](https://www.kaggle.com/code/quangnhat6/absa-nb2-rnn-predict-batch-udf) |
+| NB3 | PhoBERT | `pandas_udf` | | | | |
+| NB4 | PhoBERT | `predict_batch_udf` | | | | |
+| NB5 | PhoBERT tốt nhất | `pandas_udf` | | | | |
+
+Mốc so sánh: luôn đoán None cho mọi khía cạnh được macro-F1 = 0.2426.
+NB1 và NB2 dùng cùng mô hình nên cho cùng kết quả; khía cạnh tốt nhất là Others (0.876), kém nhất là General (0.488).
+Link Kaggle hiện đang ở chế độ Private, sẽ chuyển sang Public khi nộp.
 
 ## Tài liệu
 
