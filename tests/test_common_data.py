@@ -60,6 +60,14 @@ def test_find_data_prefers_local(tmp_path):
     assert find_or_download_data(local_dir=str(tmp_path), kaggle_root="/khong-co") == str(tmp_path)
 
 
+def test_find_data_from_notebooks_subfolder(tmp_path, monkeypatch):
+    _make_split_dir(tmp_path / "data")
+    (tmp_path / "notebooks").mkdir()
+    monkeypatch.chdir(tmp_path / "notebooks")  # notebook chạy từ thư mục notebooks/ của repo
+    found = find_or_download_data(kaggle_root="/khong-co", url="http://127.0.0.1:9/khong-co")
+    assert os.path.samefile(found, tmp_path / "data")
+
+
 def test_find_data_searches_kaggle_tree(tmp_path):
     p = tmp_path / "ten-bat-ky" / "sub"
     _make_split_dir(p)

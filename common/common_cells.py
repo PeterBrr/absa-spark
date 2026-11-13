@@ -90,7 +90,8 @@ def check_environment(min_spark: str = "3.4", require_gpu: bool = False) -> dict
     if not info["java"]:
         raise RuntimeError("Không tìm thấy Java. Spark cần Java 17+ — hãy cài JDK hoặc đặt biến JAVA_HOME.")
     if not info["cuda"]:
-        msg = "Không có GPU: notebook sẽ chạy cấu hình rút gọn (FAST_MODE) nên chậm hơn và kém chính xác hơn."
+        msg = ("Không có GPU: huấn luyện trên CPU. Notebook PhoBERT sẽ tự dùng cấu hình rút gọn (FAST_MODE) "
+               "để chạy xong trong thời gian hợp lý; mô hình RNN không bị ảnh hưởng.")
         if require_gpu:
             raise RuntimeError(msg)
         print("CẢNH BÁO:", msg)
@@ -109,9 +110,11 @@ def _has_all_files(folder: str, files) -> bool:
 def find_or_download_data(local_dir: str = "./data", kaggle_root: str = "/kaggle/input",
                           url: str = DATA_URL, files=DATA_FILES) -> str:
     """Trả về THƯ MỤC chứa 3 file dữ liệu. Tìm theo thứ tự:
-    (1) local_dir; (2) mọi thư mục con của /kaggle/input; (3) tải từ GitHub về local_dir."""
-    if _has_all_files(local_dir, files):
-        return local_dir
+    (1) local_dir, rồi ../data (khi notebook chạy từ thư mục notebooks/ của repo);
+    (2) mọi thư mục con của /kaggle/input; (3) tải từ GitHub về local_dir."""
+    for folder in (local_dir, os.path.join("..", "data")):
+        if _has_all_files(folder, files):
+            return folder
     for hit in sorted(glob.glob(os.path.join(kaggle_root, "**", files[0]), recursive=True)):
         folder = os.path.dirname(hit)
         if _has_all_files(folder, files):
