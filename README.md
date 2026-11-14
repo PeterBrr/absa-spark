@@ -60,12 +60,14 @@ Chạy trên Kaggle (GPU T4, PySpark 4.0.4).
 |---|---|---|---|---|---|---|
 | NB1 | BiLSTM | `pandas_udf` | 0.9038 | 0.8975 | 0.6435 | [link](https://www.kaggle.com/code/quangnhat6/absa-nb1-rnn-pandas-udf) |
 | NB2 | BiLSTM | `predict_batch_udf` | 0.9038 | 0.8975 | 0.6435 | [link](https://www.kaggle.com/code/quangnhat6/absa-nb2-rnn-predict-batch-udf) |
-| NB3 | PhoBERT | `pandas_udf` | | | | |
-| NB4 | PhoBERT | `predict_batch_udf` | | | | |
+| NB3 | PhoBERT | `pandas_udf` | 0.9194 | 0.9122 | 0.6558 | [link](https://www.kaggle.com/code/nha4von/absa-nb3-phobert-pandas-udf) |
+| NB4 | PhoBERT | `predict_batch_udf` | 0.9194 | 0.9122 | 0.6558 | [link](https://www.kaggle.com/code/nha4von/absa-nb4-phobert-predict-batch-udf) |
 | NB5 | PhoBERT tốt nhất | `pandas_udf` | | | | |
 
 Mốc so sánh: luôn đoán None cho mọi khía cạnh được macro-F1 = 0.2426.
 NB1 và NB2 dùng cùng mô hình nên cho cùng kết quả; khía cạnh tốt nhất là Others (0.876), kém nhất là General (0.488).
+NB3 và NB4 cũng vậy (PhoBERT, pooling CLS, 5 epoch, ~13 phút trên T4); tốt nhất Others (0.910), kém nhất General (0.541).
+Với 3 epoch như kế hoạch ban đầu, PhoBERT chỉ đạt macro-F1 0.6262 (val vẫn còn tăng) nên tăng lên 5 epoch.
 Link Kaggle hiện đang ở chế độ Private, sẽ chuyển sang Public khi nộp.
 
 ## Tài liệu
