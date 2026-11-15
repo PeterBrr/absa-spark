@@ -69,6 +69,20 @@ def test_no_outputs_detected(tmp_path, common_dir):
     assert any("output" in p for p in check_notebook(_write_nb(tmp_path, cells), common_dir))
 
 
+def test_main_expands_glob_patterns(tmp_path, common_dir, capsys):
+    # cmd/PowerShell không tự mở rộng *.ipynb → script phải tự làm
+    _write_nb(tmp_path, _good_cells(), "a.ipynb")
+    _write_nb(tmp_path, _good_cells()[1:], "b.ipynb")
+    assert main([str(tmp_path / "*.ipynb"), "--common-dir", common_dir]) == 1
+    out = capsys.readouterr().out
+    assert "a.ipynb" in out and "b.ipynb" in out
+
+
+def test_main_reports_pattern_matching_nothing(tmp_path, common_dir, capsys):
+    assert main([str(tmp_path / "khong_co_*.ipynb"), "--common-dir", common_dir]) == 1
+    assert "khong_co_" in capsys.readouterr().out
+
+
 def test_main_exit_code(tmp_path, common_dir, capsys):
     good = _write_nb(tmp_path, _good_cells(), "good.ipynb")
     bad = _write_nb(tmp_path, _good_cells()[1:], "bad.ipynb")

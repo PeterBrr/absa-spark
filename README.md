@@ -72,14 +72,14 @@ Chạy trên Kaggle (GPU T4, PySpark 4.0.4).
 
 | Notebook | Mô hình | Đóng gói | Accuracy | F1 (weighted) | Macro-F1 | Kaggle |
 |---|---|---|---|---|---|---|
-| NB1 | BiLSTM | `pandas_udf` | 0.9038 | 0.8975 | 0.6435 | [link](https://www.kaggle.com/code/quangnhat6/absa-nb1-rnn-pandas-udf) |
-| NB2 | BiLSTM | `predict_batch_udf` | 0.9038 | 0.8975 | 0.6435 | [link](https://www.kaggle.com/code/quangnhat6/absa-nb2-rnn-predict-batch-udf) |
+| NB1 | BiLSTM | `pandas_udf` | 0.9025 | 0.8967 | 0.6390 | [link](https://www.kaggle.com/code/quangnhat6/absa-nb1-rnn-pandas-udf) |
+| NB2 | BiLSTM | `predict_batch_udf` | 0.9025 | 0.8967 | 0.6390 | [link](https://www.kaggle.com/code/quangnhat6/absa-nb2-rnn-predict-batch-udf) |
 | NB3 | PhoBERT | `pandas_udf` | 0.9194 | 0.9122 | 0.6558 | [link](https://www.kaggle.com/code/nha4von/absa-nb3-phobert-pandas-udf) |
 | NB4 | PhoBERT | `predict_batch_udf` | 0.9194 | 0.9122 | 0.6558 | [link](https://www.kaggle.com/code/nha4von/absa-nb4-phobert-predict-batch-udf) |
 | NB5 | PhoBERT tốt nhất (max + focal) | `pandas_udf` | 0.9196 | 0.9183 | 0.7094 | [link](https://www.kaggle.com/code/nha4von/absa-nb5-phobert-experiments) |
 
 Mốc so sánh: luôn đoán None cho mọi khía cạnh được macro-F1 = 0.2426.
-NB1 và NB2 dùng cùng mô hình nên cho cùng kết quả; khía cạnh tốt nhất là Others (0.876), kém nhất là General (0.488).
+NB1 và NB2 dùng cùng mô hình nên cho cùng kết quả; khía cạnh tốt nhất là Others (0.875), kém nhất là General (0.489).
 NB3 và NB4 cũng vậy (PhoBERT, pooling CLS, 5 epoch, ~13 phút trên T4); tốt nhất Others (0.910), kém nhất General (0.541).
 Với 3 epoch như kế hoạch ban đầu, PhoBERT chỉ đạt macro-F1 0.6262 (val vẫn còn tăng) nên tăng lên 5 epoch.
 NB5 (thí nghiệm 3 epoch, chọn theo val macro-F1): pooling tốt nhất `max` (0.640, so với `cls` 0.629, `mean` 0.597, `attention` 0.597);

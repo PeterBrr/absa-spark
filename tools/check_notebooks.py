@@ -9,6 +9,7 @@ Quy tắc:
 Dùng: python tools/check_notebooks.py notebooks/*.ipynb [--common-dir common]
 """
 import argparse
+import glob
 import json
 import os
 import re
@@ -67,8 +68,19 @@ def main(argv=None) -> int:
     parser.add_argument("notebooks", nargs="+")
     parser.add_argument("--common-dir", default="common")
     args = parser.parse_args(argv)
+    try:  # Windows: tránh UnicodeEncodeError (✓ ✗, tiếng Việt) khi output bị chuyển hướng/pipe
+        sys.stdout.reconfigure(encoding="utf-8")
+    except (AttributeError, ValueError):
+        pass
     failed = False
-    for nb in args.notebooks:
+    notebooks = []
+    for pattern in args.notebooks:  # cmd/PowerShell không tự mở rộng *.ipynb → tự mở rộng
+        matches = sorted(glob.glob(pattern)) if glob.has_magic(pattern) else [pattern]
+        if not matches:
+            print(f"✗ {pattern}: không có file nào khớp")
+            failed = True
+        notebooks.extend(matches)
+    for nb in notebooks:
         problems = check_notebook(nb, args.common_dir)
         if problems:
             failed = True
