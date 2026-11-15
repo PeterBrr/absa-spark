@@ -30,6 +30,20 @@ Mỗi notebook chạy độc lập từ trên xuống ("Run All"):
   nên có GPU. Dữ liệu được tự tìm trong `./data/`, `/kaggle/input/`, hoặc tự tải từ thư mục
   `data/` của repo này.
 
+### Môi trường Kaggle đã kiểm tra
+
+Kết quả ô `check_environment()` trên Kaggle (tháng 11/2026), GPU T4 + Internet:
+
+| Thành phần | Kết quả |
+|---|---|
+| PySpark | 4.0.4, có sẵn (thiết kế dự đoán 4.0.5) |
+| Java | OpenJDK 21.0.12 |
+| GPU | Có CUDA. Không bật GPU thì notebook tự chuyển sang `FAST_MODE` |
+| `pyvi` | Cài được bằng `pip install pyvi`, cần bật Internet |
+| `vinai/phobert-base-v2` | Tải được từ Hugging Face, cần bật Internet. Mô hình đã lưu được nạp lại mà không cần Internet |
+
+Tài khoản Kaggle phải xác minh số điện thoại thì mới bật được Internet.
+
 ## Dữ liệu
 
 Xem [data/SOURCE.md](data/SOURCE.md). Dataset có sẵn 3 tập train / val / test (8.424 / 936 / 2.340 dòng),
