@@ -8,8 +8,8 @@ và đánh giá bằng `MulticlassClassificationEvaluator`.
 
 | Thành viên | Phần việc |
 |---|---|
-| A | Code chung (`common/common_cells.py`, UDF, loss), NB1, NB2, thí nghiệm loss ở NB5 |
-| B | `common/bert_cells.py`, NB3, NB4, NB5 (khung + thí nghiệm pooling) |
+| A — Đinh Quang Nhật (24521248) | Code chung (`common/common_cells.py`, UDF, loss), NB1, NB2, thí nghiệm loss ở NB5 |
+| B — Võ Tấn Nhã (24521225) | `common/bert_cells.py`, NB3, NB4, NB5 (khung + thí nghiệm pooling) |
 
 ## Notebook
 
@@ -86,6 +86,18 @@ NB5 (thí nghiệm 3 epoch, chọn theo val macro-F1): pooling tốt nhất `max
 với `max`, loss tốt nhất `focal` (0.681, so với `gated` 0.663, `ce` 0.640, `weighted` 0.596). Mô hình `max + focal` huấn luyện lại 5 epoch
 đạt macro-F1 test 0.7094 qua Spark; tốt nhất Others (0.879), kém nhất General (0.556). Chạy toàn bộ NB5 ~1 giờ trên T4.
 Link Kaggle hiện đang ở chế độ Private, sẽ chuyển sang Public khi nộp.
+
+## Bản nộp
+
+Thư mục [submission/](submission/) chứa 5 file nộp `Nhom20_DinhQuangNhat-VoTanNha_24521248-24521225_ABSASpark_NB1..5.ipynb`,
+sinh tự động từ `notebooks/` (điền thông tin nhóm vào ô tiêu đề, giữ nguyên code và output Kaggle):
+
+```bash
+python tools/make_submission.py
+python tools/check_notebooks.py "submission/*.ipynb"
+```
+
+Chạy lại mỗi khi có notebook trong `notebooks/` thay đổi. Không sửa tay file trong `submission/`.
 
 ## Tài liệu
 
