@@ -25,7 +25,7 @@ và đánh giá bằng `MulticlassClassificationEvaluator`.
 
 Mỗi notebook chạy độc lập từ trên xuống ("Run All"):
 
-- **Kaggle (dễ nhất):** mở link Public của notebook → *Copy & Edit* → bật GPU và Internet → Run All.
+- **Kaggle (dễ nhất):** tạo notebook mới bằng *File → Import Notebook*, chọn file `.ipynb` → bật GPU và Internet → Run All.
 - **Môi trường khác (Colab, Jupyter, Databricks):** cần Python 3.10+, PySpark ≥ 3.4, Java 17+;
   nên có GPU. Dữ liệu được tự tìm trong `./data/`, `/kaggle/input/`, hoặc tự tải từ thư mục
   `data/` của repo này.
@@ -85,7 +85,7 @@ Với 3 epoch như kế hoạch ban đầu, PhoBERT chỉ đạt macro-F1 0.6262
 NB5 (thí nghiệm 3 epoch, chọn theo val macro-F1): pooling tốt nhất `max` (0.640, so với `cls` 0.629, `mean` 0.597, `attention` 0.597);
 với `max`, loss tốt nhất `focal` (0.681, so với `gated` 0.663, `ce` 0.640, `weighted` 0.596). Mô hình `max + focal` huấn luyện lại 5 epoch
 đạt macro-F1 test 0.7094 qua Spark; tốt nhất Others (0.879), kém nhất General (0.556). Chạy toàn bộ NB5 ~1 giờ trên T4.
-Link Kaggle hiện đang ở chế độ Private, sẽ chuyển sang Public khi nộp.
+Link Kaggle để ở chế độ Private (chỉ nhóm xem được); bài nộp là 5 file trong `submission/`.
 
 ## Bản nộp
 
